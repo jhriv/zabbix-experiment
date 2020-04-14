@@ -1,0 +1,15 @@
+[Unit]
+Description=Demo Application
+After=network.target
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/home/vagrant/.cargo/bin/cargo run
+Environment=RUST_LOG=demo=info
+Environment=PATH=/home/vagrant/.cargo/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/vagrant/.local/bin:/home/vagrant/bin
+User=vagrant
+WorkingDirectory=/home/vagrant/rust-web-demo
+
+[Install]
+WantedBy=multi-user.target

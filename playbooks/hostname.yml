@@ -1,0 +1,14 @@
+---
+
+- name: "Initial Setup: SET HOSTNAMES"
+  hosts: all
+
+  tasks:
+    - name: Set hostname
+      copy:
+        dest: /etc/hostname
+        content: |
+          {{ inventory_hostname }}
+      become: true
+      tags:
+        - setup

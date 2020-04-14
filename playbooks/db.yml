@@ -1,0 +1,64 @@
+---
+
+- name: "Initial Setup: POSTGRESQL"
+  hosts: db
+
+  tasks:
+    - name: Add Postgres yum repository
+      package:
+        name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+        state: present
+      become: true
+
+    - name: Install Postgres
+      package:
+        name: [ 'postgresql{{ pgsql_major_version }}-server', 'python-psycopg2', 'python-ipaddress' ]
+        state: present
+      become: true
+      notify:
+        - Start PostgreSQL
+      tags:
+        - setup
+
+    - name: Intialize PostgreSQL
+      command: postgresql-{{ pgsql_major_version }}-setup initdb
+      args:
+        creates: /var/lib/pgsql/{{ pgsql_major_version }}/data/postgresql.conf
+      environment:
+        PATH: '/usr/pgsql-{{ pgsql_major_version }}/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin'
+      become: true
+      # become_user: postgres
+      notify: Start PostgreSQL
+      tags:
+        - setup
+
+    - meta: flush_handlers
+
+    - name: Listen on all addresses
+      postgresql_set:
+        name: listen_addresses
+        value: '0.0.0.0'
+      become: true
+      become_user: postgres
+      notify:
+        - Restart PostgreSQL
+
+  handlers:
+
+
+    - name: Start PostgreSQL
+      service:
+        name: postgresql-{{ pgsql_major_version }}
+        state: started
+        enabled: true
+      become: true
+      tags:
+        - setup
+
+    - name: Restart PostgreSQL
+      service:
+        name: postgresql-{{ pgsql_major_version }}
+        state: restarted
+      become: true
+      tags:
+        - setup

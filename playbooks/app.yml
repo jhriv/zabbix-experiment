@@ -1,0 +1,165 @@
+---
+
+- name: Simple Rusty App POC
+  hosts: app
+
+  vars:
+    rustup: rustup.sh
+    app_db: mydb
+    db_user: 'vagrant'
+    db_pass: '123456'
+
+  tasks:
+    - name: Download rustup
+      get_url:
+        url: https://sh.rustup.rs
+        dest: "/home/vagrant/{{ rustup }}"
+
+    - name: Install rust
+      command: sh ./{{ rustup }} -y
+      args:
+        creates: .cargo/bin/rustc
+
+    - name: Install pre-pre-reqs (epel/pgsql)
+      # redis
+      package:
+        name: [ 'epel-release', 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm' ]
+        state: present
+      become: true
+
+    - name: Install pre-reqs
+      package:
+        name: [ 'postgresql{{ pgsql_major_version }}', 'redis', 'git', 'gcc', 'openssl-devel' ]
+        state: present
+      become: true
+      notify: Start Services
+
+    - name: Install ansible postgres reqs
+      package:
+        name: [ 'python-psycopg2', 'python-ipaddress' ]
+        state: present
+      become: true
+
+    # Start Services, if required
+    - meta: flush_handlers
+
+    - name: Create pg_user
+      postgresql_user:
+        name: '{{ db_user }}'
+        password: '{{ db_pass }}'
+        encrypted: true
+        state: present
+      no_log: true
+      # [WARNING]: Module did not set no_log for no_password_changes
+      become_user: postgres
+      become: true
+      delegate_to: '{{ db }}'
+
+    - name: Create the apps's database
+      postgresql_db:
+        name: "{{ app_db }}"
+        owner: "{{ db_user }}"
+      become_user: postgres
+      become: true
+      delegate_to: '{{ db }}'
+
+    - name: Get location of pg_hba.conf
+      command: >
+        psql --tuples-only --pset=format=unaligned --command='show hba_file'
+      changed_when: false
+      check_mode: false
+      become_user: postgres
+      become: true
+      register: hba_conf_path
+      delegate_to: '{{ db }}'
+
+    - name: Allow user access
+      postgresql_pg_hba:
+        dest: '{{ hba_conf_path.stdout }}'
+        contype: host
+        address: samenet
+        databases: '{{ app_db }}'
+        users: '{{ db_user }}'
+        state: present
+      become: true
+      delegate_to: '{{ db }}'
+      notify: Restart PostgreSQL
+
+    # Reload PostgreSQL, if required
+    - meta: flush_handlers
+
+    - name: Git (hee hee) the rusty app
+      git:
+        repo: https://github.com/jhriv/rust-web-demo.git
+        # forked from https://github.com/hikelee/rust-web-demo
+        dest: rust-web-demo
+        update: false
+        # so we can configure it below, and remain idempotent
+
+    - name: Fix database connector
+      lineinfile:
+        path: rust-web-demo/web-root/config/web.conf
+        regexp: '(\s*{{ item.key }}\s*=)"[^"]*"(.*)'
+        line: '\1"{{ item.value }}"\2'
+        backrefs: true
+      no_log: true
+      loop:
+        - { key: 'host',      value: '{{ db }}'      }
+        - { key: 'db_name',   value: '{{ app_db }}'  }
+        - { key: 'user_name', value: '{{ db_user }}' }
+        - { key: 'password',  value: '{{ db_pass }}' }
+      tags: try
+
+    - name: Init the database
+      command: >
+        psql --file=/home/vagrant/rust-web-demo/web-root/sql/init.sql -d postgres://{{ db_user }}:{{db_pass}}@{{ db }}/{{ app_db }}
+      register: p_out
+      changed_when: p_out.stderr_lines | length == 0
+
+    - name: Compile our happy appy
+      command: cargo build
+      args:
+        chdir: rust-web-demo
+        creates: target/debug/app
+      environment:
+        PATH: /home/vagrant/.cargo/bin:/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/vagrant/.local/bin:/home/vagrant/bin
+
+    - name: Install Systemd Service File
+      template:
+        src: "{{ item }}.j2"
+        dest: /etc/systemd/system/{{ item }}
+      become: true
+      loop:
+        - "rust-web-demo.service"
+      notify: Systemd Reload
+
+    # Reload systemd, if required
+    - meta: flush_handlers
+
+    - name: Start the app
+      service:
+        name: rust-web-demo
+        enabled: true
+        state: started
+      become: true
+
+  handlers:
+    - name: Start Services
+      service:
+        name: '{{ item }}'
+        state: started
+        enabled: true
+      become: true
+      loop:
+        - redis
+
+    - name: Restart PostgreSQL
+      service:
+        name: postgresql-{{ pgsql_major_version }}
+        state: restarted
+      become: true
+      delegate_to: '{{ db }}'
+
+    - name: Systemd Reload
+      command: systemctl daemon-reload
+      become: true

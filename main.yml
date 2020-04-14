@@ -1,0 +1,7 @@
+---
+
+- import_playbook: playbooks/hostname.yml
+- import_playbook: playbooks/db.yml
+- import_playbook: playbooks/proxy.yml
+- import_playbook: playbooks/web.yml
+- import_playbook: playbooks/app.yml

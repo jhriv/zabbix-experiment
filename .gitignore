@@ -1,0 +1,6 @@
+# Vagrant-as-Infrastrcture generated files:
+.etc-hosts.yml
+.inventory
+.ssh-config
+.vagrant
+ansible.cfg

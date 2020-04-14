@@ -1,0 +1,37 @@
+---
+
+- name: "Initial Setup: HAPROXY"
+  hosts: proxy
+
+  tasks:
+    - name: Install HAProxy
+      package:
+        name: [ 'haproxy' ]
+        state: present
+      become: true
+      notify: Start HAProxy
+      tags:
+        - setup
+
+    - name: Configure HAProxy
+      template:
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+        validate: haproxy -c -f %s
+      become: true
+      notify: Restart HAProxy
+
+  handlers:
+    - name: Start HAProxy
+      service:
+        name: haproxy
+        state: started
+        enabled: true
+      become: true
+
+
+    - name: Restart HAProxy
+      service:
+        name: haproxy
+        state: restarted
+      become: true

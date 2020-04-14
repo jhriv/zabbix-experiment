@@ -1,0 +1,44 @@
+---
+
+- name: "Initial Setup: APACHE"
+  hosts: web
+
+  tasks:
+    - name: Install Apache
+      package:
+        name: [ 'httpd', 'libsemanage-python' ]
+        state: present
+      become: true
+      notify: Start Apache
+      tags:
+        - setup
+
+    - name: Allow Proxying (SELinux)
+      seboolean:
+        name: httpd_can_network_connect
+        state: true
+        persistent: true
+      become: true
+
+    - name: vhost it
+      template:
+        dest: /etc/httpd/conf.d/app.conf
+        src: app.conf.j2
+      become: true
+      notify: Reload Apache
+
+  handlers:
+    - name: Start Apache
+      service:
+        name: httpd
+        state: started
+        enabled: true
+      become: true
+      tags:
+        - setup
+
+    - name: Reload Apache
+      service:
+        name: httpd
+        state: restarted
+      become: true

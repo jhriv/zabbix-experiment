@@ -1,0 +1,2 @@
+ProxyPass "/"  "http://{{ app }}:{{ app_port | default('8080') }}/"
+ProxyPassReverse "/"  "http://{{ app }}:{{ app_port | default('8080') }}/"
