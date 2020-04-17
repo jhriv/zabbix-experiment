@@ -2,3 +2,4 @@
 
 pgsql_major_version: '12'
 adminer: true
+zabbix_server: zabbix

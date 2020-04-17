@@ -27,8 +27,8 @@
     state: present
   become: true
   loop:
-    - { key: 'Server', value: 'zabbix' }
-    - { key: 'ServerActive', value: 'zabbix' }
+    - { key: 'Server', value: '{{ zabbix_server }}' }
+    - { key: 'ServerActive', value: '{{ zabbix_server }}' }
     - { key: 'Hostname', value: '{{ zabbix_client_name | default ( inventory_hostname) }}' }
     # - { key: '', value: '' }
     # - { key: '', value: '' }
