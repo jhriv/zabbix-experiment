@@ -1,0 +1,3 @@
+---
+
+pgsql_superuser_password: 'pgsql-admin'
