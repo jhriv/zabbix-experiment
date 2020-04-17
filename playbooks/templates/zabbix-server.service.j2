@@ -1,0 +1,14 @@
+[Unit]
+Description=Zabbix Server
+After=syslog.target
+After=network.target
+After=postgresql.service
+
+[Service]
+Restart=on-failure
+ExecStart=/usr/sbin/zabbix_server -f -c /etc/zabbix/zabbix_server.conf
+RestartSec=10s
+TimeoutSec=0
+
+[Install]
+WantedBy=multi-user.target
