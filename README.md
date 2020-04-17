@@ -19,12 +19,13 @@ Install:
 ---
 
 * Clone repo
-* `make main`
+* `make etc-hosts main`
   - Brings up the productionesque environment
   - Creates the monitoring system, with its own local database
   - Proxies listening on http://localhost:8088/ and http://localhost:8089/
   - Monitoring listening on http://localhost:8000/zabbix/
   - Adminer listening on http://localhost:8000/adminer/
+  - Zabbix Usernames and passwords are on http://localhost:8000/
 
 Set up auto registration:
 ---
@@ -42,3 +43,4 @@ https://www.zabbix.com/documentation/4.0/manual/discovery/auto_registration
     * Operations
       * Operation Type
         * Add host
+        * Add to host groups: Linux Servers
