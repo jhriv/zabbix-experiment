@@ -1,0 +1,145 @@
+---
+
+- name: "Initial Setup: ZABBIX"
+  hosts: zabbix
+
+  roles:
+    - role: pgsql-server
+    - role: pgsql-client
+      # vars:
+      #   db_client_address: 'samehost'
+      #   db_client_address: 'localhost'
+      #   db_client_address: '127.0.0.1'
+      #   db_client_address: 'all'
+
+  tasks:
+    - name: Disable SELinux
+      selinux:
+        state: disabled
+      become: true
+
+    - name: Install SE Linux reqs
+      package:
+        name: libsemanage-python
+        state: present
+      become: true
+      when: false
+
+    - name: Add Zabbix Repository
+      package:
+        name: https://repo.zabbix.com/zabbix/4.0/rhel/7/x86_64/zabbix-release-4.0-2.el7.noarch.rpm
+        #name: https://repo.zabbix.com/zabbix/4.4/rhel/7/x86_64/zabbix-release-4.4-1.el7.noarch.rpm
+        state: present
+      become: true
+
+    - name: Install Zabbix
+      package:
+        name: [ 'zabbix-server-pgsql', 'zabbix-web-pgsql', 'zabbix-agent' ]
+        state: present
+      become: true
+
+    - name: Init the database
+      shell: >
+         zcat /usr/share/doc/zabbix-server-pgsql-*/create.sql.gz \
+            | psql --dbname='{{ db_conninfo }}'
+      register: db_init_out
+      changed_when: db_init_out.stderr_lines | length == 0
+
+    - name: Fix database connector
+      lineinfile:
+        path: /etc/zabbix/zabbix_server.conf
+        regexp: '{{ item.key }}=(.*)'
+        line: '{{ item.key }}={{ item.value }}'
+        backrefs: true
+      no_log: true
+      become: true
+      loop:
+        - { key: 'DBHost',     value: '{{ db_host }}' }
+        - { key: 'DBName',     value: '{{ db_name }}' }
+        - { key: 'DBUser',     value: '{{ db_user }}' }
+        - { key: 'DBPassword', value: '{{ db_pass }}' }
+
+    - name: Configure Timezone for Zabbix
+      lineinfile:
+        path: /etc/httpd/conf.d/zabbix.conf
+        line: '        php_value date.timezone America/Los_Angeles'
+        insertbefore: '    </IfModule>'
+      become: true
+
+    - name: Allow httpd to access local services
+      seboolean:
+        name: '{{ item }}'
+        state: 'true'
+        persistent: true
+      become: true
+      loop:
+        - httpd_can_connect_zabbix
+        - httpd_can_network_connect_db
+      when: false
+
+    - name: Set Admin Password
+      command: >
+        psql --dbname='{{ db_conninfo }}'
+          -c "UPDATE users SET passwd=md5('{{ zb_admin_pass }}') WHERE alias='Admin';"
+      register: a_out
+      # changed_when: ???
+
+    - name: Configure Web Frontend
+      template:
+        dest: /etc/zabbix/web/zabbix.conf.php
+        src: zabbix.conf.php.j2
+      become: true
+
+    - name: Add working service file
+      template:
+        dest: /etc/systemd/system/zabbix-server.service
+        src: zabbix-server.service.j2
+      become: true
+      notify: Reload systemd
+      when: false
+
+    - meta: flush_handlers
+
+    - name: Friendly Landing Page
+      copy:
+        dest: /var/www/html/index.html
+        content: |
+          <html>
+          <head>
+            <title>Zabbix Experiment</title>
+          </head>
+          <body>
+            <p><a href="/zabbix/">Zabbix</a></p>
+            <ul>
+              <li>Username: Admin
+              <li>Password: {{ zb_admin_pass }}
+            </ul>
+            <p><a href="/adminer/">Adminer</a></p>
+            <ul>
+              <li>System: PostgreSQL
+              <li>Server: localhost
+              <li>Username: {{ db_user }}
+              <li>Password: {{ db_pass }}
+              <li>Database: {{ db_name }}
+            </ul>
+          </body>
+          </html>
+      become: true
+      tags: urtle
+
+    - name: (Re)Start Services
+      service:
+        name: '{{ item }}'
+        state: restarted
+        enabled: true
+      become: true
+      loop:
+        - zabbix-server
+        - zabbix-agent
+        - httpd
+
+  handlers:
+    - name: Reload systemd
+      systemd:
+        daemon_reload: true
+      become: true

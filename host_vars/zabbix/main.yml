@@ -1,0 +1,9 @@
+---
+
+db_host: 'localhost'
+db_name: 'zb_db'
+db_user: 'zb_user'
+db_pass: 'eek0zooM Ui4ukona fei1Wiew'
+db_conninfo: 'postgres://{{ db_user }}:{{db_pass}}@{{ db_host }}/{{ db_name }}'
+zb_admin_pass: 'combo-breaker'
+zabbix_server_name: 'Zabbix Experiment'
