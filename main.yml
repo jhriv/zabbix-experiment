@@ -1,16 +1,7 @@
 ---
 
-# - import_playbook: playbooks/zabbix.yml
-
-- name: Pause for GUI setup
-  hosts: zabbix
-  gather_facts: false
-  tasks:
-    - name: Set up the Zabbix GUI
-      pause:
-        prompt: "Enable self-registation\n  http://localhost:8000/zabbix/\n  Username: \"Admin\"\n  Password: \"{{ zb_admin_pass }}\"\nPress [enter] when complete"
-
 - import_playbook: playbooks/hostname.yml
+- import_playbook: playbooks/zabbix.yml
 - import_playbook: playbooks/db.yml
 - import_playbook: playbooks/proxy.yml
 - import_playbook: playbooks/web.yml
