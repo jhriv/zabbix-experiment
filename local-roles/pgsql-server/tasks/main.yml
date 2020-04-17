@@ -1,0 +1,98 @@
+---
+
+- name: "Add Postgres yum repository"
+  package:
+    name: https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm
+    state: present
+  become: true
+
+- name: "Install Postgres"
+  package:
+    name: [ 'postgresql{{ pgsql_major_version }}-server', 'python-psycopg2', 'python-ipaddress' ]
+    state: present
+  become: true
+  notify:
+    - Start PostgreSQL
+
+- name: "Intialize PostgreSQL"
+  command: postgresql-{{ pgsql_major_version }}-setup initdb
+  args:
+    creates: /var/lib/pgsql/{{ pgsql_major_version }}/data/postgresql.conf
+  environment:
+    PATH: '/usr/pgsql-{{ pgsql_major_version }}/bin:/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/root/bin'
+  become: true
+  notify: Start PostgreSQL
+
+- meta: flush_handlers
+
+- name: "Set Superuser password"
+  postgresql_user:
+    name: 'postgres'
+    password: '{{ pgsql_superuser_password }}'
+    encrypted: true
+    state: present
+  become_user: postgres
+  become: true
+  when: pgsql_superuser_password is defined
+
+- name: "Get location of pg_hba.conf"
+  command: >
+    psql --tuples-only --pset=format=unaligned --command='show hba_file'
+  changed_when: false
+  check_mode: false
+  become_user: postgres
+  become: true
+  register: hba_conf_path
+
+- name: "Adjust pg_hba.conf"
+  postgresql_pg_hba:
+    dest: '{{ hba_conf_path.stdout }}'
+    address: '{{ item.address }}'
+    contype: '{{ item.type | default ("host") }}'
+    databases: '{{ item.database | default ("all") }}'
+    method: '{{ item.method | default ("md5") }}'
+    users: '{{ item.user | default ("samerole") }}'
+    state: '{{ item.state | default ("present") }}'
+  become: true
+  loop:
+    - { type: 'host', database: 'all', user: 'all', address: '::1/128', method: 'ident', state: 'absent' }
+    - { type: 'host', database: 'all', user: 'all', address: '127.0.0.1/32', method: 'ident', state: 'absent' }
+    - {address: '', type: 'local', user: 'all', method: 'peer' }
+    - { address: 'samehost', user: 'postgres' }
+    - { address: 'samenet' }
+  notify:
+    - Restart PostgreSQL
+
+- name: "Listen on all addresses"
+  postgresql_set:
+    name: listen_addresses
+    value: '0.0.0.0'
+  become: true
+  become_user: postgres
+  notify:
+    - Restart PostgreSQL
+
+- meta: flush_handlers
+
+- block:
+  - name: Install Apache+PHP
+    package:
+      name: [ 'httpd', 'php', 'php-pgsql' ]
+      state: present
+    become: true
+    notify:
+      - Start Apache
+
+  - name: Prepare Adminer LZ
+    file:
+      path: /var/www/html/adminer
+      state: directory
+    become: true
+
+  - name: Download the adminers.
+    get_url:
+      url: https://github.com/vrana/adminer/releases/download/v{{ adminer_version }}/adminer-{{ adminer_version }}.php
+      dest: /var/www/html/adminer/index.php
+    become: true
+
+  when: ( adminer | default(false) ) | bool
