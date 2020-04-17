@@ -16,6 +16,7 @@
         db_name: '{{ app_db }}'
         # db_pass: '{{ db_pass }}'
         # db_user: '{{ db_user }}'
+    - role: zabbix-client
 
   tasks:
     - name: Download rustup

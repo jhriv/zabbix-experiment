@@ -3,6 +3,9 @@
 - name: "Initial Setup: HAPROXY"
   hosts: proxy
 
+  roles:
+    - role: zabbix-client
+
   tasks:
     - name: Install HAProxy
       package:

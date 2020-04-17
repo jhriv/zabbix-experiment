@@ -4,6 +4,7 @@
   hosts: zabbix
 
   roles:
+    - role: zabbix-client
     - role: pgsql-server
     - role: pgsql-client
       # vars:

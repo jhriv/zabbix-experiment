@@ -3,6 +3,9 @@
 - name: "Initial Setup: APACHE"
   hosts: web
 
+  roles:
+    - role: zabbix-client
+
   tasks:
     - name: Install Apache
       package:

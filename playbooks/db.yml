@@ -3,6 +3,9 @@
 - name: "Initial Setup: POSTGRESQL"
   hosts: db
 
+  roles:
+    - role: zabbix-client
+
   tasks:
     - name: Add Postgres yum repository
       package:
