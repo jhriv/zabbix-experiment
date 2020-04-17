@@ -4,7 +4,7 @@
 # List guests here, one per record.
 
 GUESTS = [
-  { name: 'zabbix',  box: 'centos/7', ip: 'dhcp' },
+  { name: 'zabbix',  box: 'centos/7', ip: 'dhcp', ports: [{ guest: 80, host: 8000}] },
   { name: 'app-1',   box: 'centos/7', ip: 'dhcp' },
   { name: 'app-2',   box: 'centos/7', ip: 'dhcp' },
   { name: 'db-1',    box: 'centos/7', ip: 'dhcp' },
