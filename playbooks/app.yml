@@ -9,6 +9,14 @@
     db_user: 'vagrant'
     db_pass: '123456'
 
+  roles:
+    - role: pgsql-client
+      vars:
+        db_host: '{{ db }}'
+        db_name: '{{ app_db }}'
+        # db_pass: '{{ db_pass }}'
+        # db_user: '{{ db_user }}'
+
   tasks:
     - name: Download rustup
       get_url:
@@ -23,69 +31,20 @@
     - name: Install pre-pre-reqs (epel/pgsql)
       # redis
       package:
-        name: [ 'epel-release', 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm' ]
+        #name: [ 'epel-release', 'https://download.postgresql.org/pub/repos/yum/reporpms/EL-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm' ]
+        name: epel-release
         state: present
       become: true
 
     - name: Install pre-reqs
       package:
-        name: [ 'postgresql{{ pgsql_major_version }}', 'redis', 'git', 'gcc', 'openssl-devel' ]
+        name: [ 'redis', 'git', 'gcc', 'openssl-devel' ]
         state: present
       become: true
       notify: Start Services
 
-    - name: Install ansible postgres reqs
-      package:
-        name: [ 'python-psycopg2', 'python-ipaddress' ]
-        state: present
-      become: true
 
     # Start Services, if required
-    - meta: flush_handlers
-
-    - name: Create pg_user
-      postgresql_user:
-        name: '{{ db_user }}'
-        password: '{{ db_pass }}'
-        encrypted: true
-        state: present
-      no_log: true
-      # [WARNING]: Module did not set no_log for no_password_changes
-      become_user: postgres
-      become: true
-      delegate_to: '{{ db }}'
-
-    - name: Create the apps's database
-      postgresql_db:
-        name: "{{ app_db }}"
-        owner: "{{ db_user }}"
-      become_user: postgres
-      become: true
-      delegate_to: '{{ db }}'
-
-    - name: Get location of pg_hba.conf
-      command: >
-        psql --tuples-only --pset=format=unaligned --command='show hba_file'
-      changed_when: false
-      check_mode: false
-      become_user: postgres
-      become: true
-      register: hba_conf_path
-      delegate_to: '{{ db }}'
-
-    - name: Allow user access
-      postgresql_pg_hba:
-        dest: '{{ hba_conf_path.stdout }}'
-        contype: host
-        address: samenet
-        databases: '{{ app_db }}'
-        users: '{{ db_user }}'
-        state: present
-      become: true
-      delegate_to: '{{ db }}'
-      notify: Restart PostgreSQL
-
-    # Reload PostgreSQL, if required
     - meta: flush_handlers
 
     - name: Git (hee hee) the rusty app
