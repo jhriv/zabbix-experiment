@@ -30,6 +30,29 @@
       become: true
       notify: Reload Apache
 
+    - name: Simple static page
+      copy:
+        dest: /var/www/html/test.html
+        content: |
+          <html>
+          <head>
+            <title>Test Page</title>
+          </head>
+          <body>
+            <p>It works!</p>
+          </body>
+          </html>
+      become: true
+
+    - name: Serve test page locally
+      copy:
+        dest: /etc/httpd/conf.d/testpage.conf
+        content: |
+          <Location "/test.html">
+            ProxyPass !
+          </Location>
+      become: true
+
   handlers:
     - name: Start Apache
       service:
